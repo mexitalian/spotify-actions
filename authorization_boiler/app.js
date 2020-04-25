@@ -18,6 +18,7 @@ const {
   CLIENT_ID: client_id,
   CLIENT_SECRET: client_secret,
   REDIRECT_URI: redirect_uri,
+  PORT: port=8080,
 } = process.env;
 
 /**
@@ -147,5 +148,5 @@ app.get('/refresh_token', function(req, res) {
   });
 });
 
-console.log('Listening on 8888');
-app.listen(8888);
+app.listen(port);
+console.log('Listening:' + port);
