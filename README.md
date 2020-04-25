@@ -1,3 +1,9 @@
+# Spotify://action/love
+This server and web app will allow a spotify user to create osbfuscated endpoints for song actions such as 'like current song'.
+
+Like
+`/<user_uuid>/like`
+
 # Spotify Accounts Authentication Examples
 
 This project contains basic demos showing the different OAuth 2.0 flows for [authenticating against the Spotify Web API](https://developer.spotify.com/web-api/authorization-guide/).
