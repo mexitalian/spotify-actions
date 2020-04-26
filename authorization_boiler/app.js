@@ -8,11 +8,13 @@
  */
 
 require('dotenv').config();
-var express = require('express'); // Express web server framework
-var request = require('request'); // "Request" library
-var cors = require('cors');
-var querystring = require('querystring');
-var cookieParser = require('cookie-parser');
+const express = require('express'); // Express web server framework
+const request = require('request'); // "Request" library
+const cors = require('cors');
+const querystring = require('querystring');
+const cookieParser = require('cookie-parser');
+const Sequelize = require('sequelize');
+
 const { generateRandomString } = require('./utils');
 const { SCOPE, API_BASE_URL } = require('./const');
 
@@ -21,10 +23,37 @@ const {
   CLIENT_SECRET: client_secret,
   REDIRECT_URI: redirect_uri,
   PORT: port=8000,
+  DB_HOST,
+  DB_NAME,
+  DB_USER,
+  DB_PASS,
 } = process.env;
+const stateKey = 'spotify_auth_state';
 
-var stateKey = 'spotify_auth_state';
-var app = express();
+const app = express();
+const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASS, {
+  host: DB_HOST,
+  dialect: 'mysql',
+});
+
+class User extends Sequelize.Model {}
+User.init({
+  // attributes
+  spotifyId: {
+    type: Sequelize.STRING,
+    allowNull: false
+  },
+  accessToken: {
+    type: Sequelize.STRING,
+  },
+  refreshToken: {
+    type: Sequelize.STRING,
+  }
+}, {
+  sequelize,
+  modelName: 'user'
+});
+User.sync();
 
 app.use(express.static(__dirname + '/public'))
    .use(cors())
@@ -51,10 +80,8 @@ app.get('/callback', function(req, res) {
 
   // your application requests refresh and access tokens
   // after checking the state parameter
-
-  var code = req.query.code || null;
-  var state = req.query.state || null;
-  var storedState = req.cookies ? req.cookies[stateKey] : null;
+  const { code = null, state = null } = req.query;
+  const storedState = req.cookies ? req.cookies[stateKey] : null;
 
   if (state === null || state !== storedState) {
     res.redirect('/#' +
@@ -63,7 +90,7 @@ app.get('/callback', function(req, res) {
       }));
   } else {
     res.clearCookie(stateKey);
-    var authOptions = {
+    const authOptions = {
       url: 'https://accounts.spotify.com/api/token',
       form: {
         code: code,
@@ -71,7 +98,7 @@ app.get('/callback', function(req, res) {
         grant_type: 'authorization_code'
       },
       headers: {
-        'Authorization': 'Basic ' + (new Buffer(client_id + ':' + client_secret).toString('base64'))
+        'Authorization': `Basic ${new Buffer(`${client_id}:${client_secret}`).toString('base64')}`
       },
       json: true
     };
@@ -79,19 +106,26 @@ app.get('/callback', function(req, res) {
     request.post(authOptions, function(error, response, body) {
       if (!error && response.statusCode === 200) {
 
-        var access_token = body.access_token,
-            refresh_token = body.refresh_token;
-
-        var options = {
+        const { access_token, refresh_token } = body;
+        const options = {
           url: `${API_BASE_URL}/me`,
-          headers: { 'Authorization': 'Bearer ' + access_token },
+          headers: { 'Authorization': `Bearer ${access_token}` },
           json: true
         };
 
         // use the access token to access the Spotify Web API
+        // TODO can all of this be done from the original response body
         request.get(options, function(error, response, body) {
+          const user = User.build({
+            spotifyId: body.id,
+            accessToken: access_token,
+            refreshToken: refresh_token,
+          });
+          user.save();
           console.log(body);
         });
+
+
 
         // we can also pass the token to the browser to make requests from there
         res.redirect('/#' +
