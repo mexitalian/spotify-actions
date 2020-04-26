@@ -13,31 +13,17 @@ var request = require('request'); // "Request" library
 var cors = require('cors');
 var querystring = require('querystring');
 var cookieParser = require('cookie-parser');
+const { generateRandomString } = require('./utils');
+const { SCOPE, API_BASE_URL } = require('./const');
 
 const {
   CLIENT_ID: client_id,
   CLIENT_SECRET: client_secret,
   REDIRECT_URI: redirect_uri,
-  PORT: port=8080,
+  PORT: port=8000,
 } = process.env;
 
-/**
- * Generates a random string containing numbers and letters
- * @param  {number} length The length of the string
- * @return {string} The generated string
- */
-var generateRandomString = function(length) {
-  var text = '';
-  var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-  for (var i = 0; i < length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
-};
-
 var stateKey = 'spotify_auth_state';
-
 var app = express();
 
 app.use(express.static(__dirname + '/public'))
@@ -50,12 +36,11 @@ app.get('/login', function(req, res) {
   res.cookie(stateKey, state);
 
   // your application requests authorization
-  var scope = 'user-read-private user-read-email streaming user-modify-playback-state';
   res.redirect('https://accounts.spotify.com/authorize?' +
     querystring.stringify({
       response_type: 'code',
       client_id,
-      scope,
+      scope: SCOPE,
       redirect_uri,
       state
     }));
@@ -98,7 +83,7 @@ app.get('/callback', function(req, res) {
             refresh_token = body.refresh_token;
 
         var options = {
-          url: 'https://api.spotify.com/v1/me',
+          url: `${API_BASE_URL}/me`,
           headers: { 'Authorization': 'Bearer ' + access_token },
           json: true
         };
